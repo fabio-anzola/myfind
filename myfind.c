@@ -29,6 +29,12 @@ void search_file(const char *searchpath, const char *filename, int recursive, in
             // if file found then output to stdout
             printf("%d: %s: %s/%s\n", getpid(), filename, searchpath, entry->d_name);
         }
+        
+        // if recursive flag is set then recall function with new dir
+        if (recursive && entry->d_type == DT_DIR) {
+            snprintf(path, sizeof(path), "%s/%s", searchpath, entry->d_name);
+            search_file(path, filename, recursive, case_insensitive);
+        }
     }
 
     closedir(dir);
