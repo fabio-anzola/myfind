@@ -83,8 +83,7 @@ int main(int argc, char *argv[])
         }
         if (pid == 0) { 
             // Child Process
-            // TODO: search for files
-            printf("I'm a child");
+            search_file(searchpath, argv[i], recursive, case_insensitive);
             exit(0);
         }
         else {
