@@ -17,6 +17,20 @@ void search_file(const char *searchpath, const char *filename, int recursive, in
         return;
     }
 
+    // Read files in directory
+    while ((entry = readdir(dir)) != NULL) {
+        // ignore "." and ".."
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+            continue;
+        
+        // compare filename with current iteration of directory
+        if ((case_insensitive && strcasecmp(entry->d_name, filename) == 0) || 
+            (!case_insensitive && strcmp(entry->d_name, filename) == 0)) {
+            // if file found then output to stdout
+            printf("%d: %s: %s/%s\n", getpid(), filename, searchpath, entry->d_name);
+        }
+    }
+
     closedir(dir);
 }
 
