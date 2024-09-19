@@ -3,6 +3,22 @@
 #include <assert.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <dirent.h>
+#include <string.h>
+
+void search_file(const char *searchpath, const char *filename, int recursive, int case_insensitive) {
+    DIR *dir;
+    struct dirent *entry;
+    char path[1024];
+    
+    // Open the searchpath directory and define dir
+    if (!(dir = opendir(searchpath))) {
+        perror("Could not open searchpath directory");
+        return;
+    }
+
+    closedir(dir);
+}
 
 int main(int argc, char *argv[])
 {
