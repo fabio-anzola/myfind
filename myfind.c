@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 int main(int argc, char *argv[])
 {
@@ -34,7 +35,25 @@ int main(int argc, char *argv[])
     // Extract searchpath from arguments
     searchpath = argv[optind];
     optind++;
-
-    printf(searchpath);
+    
+    for (int i = optind; i < argc; i++) {
+        pid_t pid = fork();
+        
+        if (pid == -1) { 
+            // Error while Forking
+            perror("Failed to fork");
+            exit(EXIT_FAILURE);
+            return 1;
+        }
+        if (pid == 0) { 
+            // Child Process
+            // TODO: search for files
+            printf("I'm a child");
+            exit(0);
+        }
+        else {
+            // Parent process            
+        }
+    }
 
 }
