@@ -1,2 +1,4 @@
 searchable/
 .vscode/
+*.o
+myfind

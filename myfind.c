@@ -45,13 +45,19 @@ void search_file(const char *searchpath, const char *filename, int recursive, in
         if ((case_insensitive && strcasecmp(entry->d_name, filename) == 0)) {
             // if file found then format output to result buffer
             snprintf(result, sizeof(result), "%d: %s: %s\n", getpid(), filename, abs_path);
-            write(fd, result, strlen(result)); // write result to the pipe
+            ssize_t write_ret = write(fd, result, strlen(result)); // write result to the pipe
+            if (write_ret == -1) {
+                perror("Could not write to pipe");
+            }
         }
         // case sensitive
         else if ((!case_insensitive && strcmp(entry->d_name, filename) == 0)) {
             // if file found then format output to result buffer
             snprintf(result, sizeof(result), "%d: %s: %s\n", getpid(), filename, abs_path);
-            write(fd, result, strlen(result)); // write result to the pipe
+            ssize_t write_ret = write(fd, result, strlen(result)); // write result to the pipe
+            if (write_ret == -1) {
+                perror("Could not write to pipe");
+            }
         }
         
         // if recursive flag is set
@@ -101,7 +107,7 @@ int main(int argc, char *argv[])
     
     // Create a pipe
     if (pipe(pipefd) == -1) {
-        fprintf(stderr,"Could not create pipe");
+        perror("Could not create pipe");
         exit(EXIT_FAILURE);
     }
 
@@ -110,7 +116,7 @@ int main(int argc, char *argv[])
         
         if (pid == -1) { 
             // Error while forking
-            fprintf(stderr,"Failed to fork");
+            perror("Failed to fork");
             exit(EXIT_FAILURE);
         }
         if (pid == 0) { 
