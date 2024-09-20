@@ -9,6 +9,7 @@
 #include <sys/types.h>
 #include <sys/errno.h>
 
+// Function which is called within each process to search filename in searchpath
 void search_file(const char *searchpath, const char *filename, int recursive, int case_insensitive, int fd) {
     DIR *dir;
     struct dirent *entry;
@@ -30,13 +31,14 @@ void search_file(const char *searchpath, const char *filename, int recursive, in
             strcmp(entry->d_name, "..") == 0)
             continue;
 
-        // create relative path for realpath function
+        // create full relative path for realpath function
         snprintf(path, sizeof(path), "%s/%s", searchpath, entry->d_name);
 
-        // create absolute path for output (searchpath + "/" + entry->d_name)
+        // create absolute path for output
         if (realpath(path, abs_path) == NULL) {
             // Enter here if absolute path could not be generated
             // fprintf(stderr,"Could not create absolute path");
+            // skip
             continue;
         }
         
@@ -102,16 +104,16 @@ int main(int argc, char *argv[])
     // Extract searchpath from arguments
     searchpath = argv[optind];
     optind++;
-
-    int pipefd[2];
     
-    // Create a pipe
+    // Create a pipe for sync output
+    int pipefd[2];
     if (pipe(pipefd) == -1) {
         perror("Could not create pipe");
         exit(EXIT_FAILURE);
     }
 
     for (int i = optind; i < argc; i++) {
+        // Create fork for each filename
         pid_t pid = fork();
         
         if (pid == -1) { 
@@ -123,7 +125,7 @@ int main(int argc, char *argv[])
             // Child Process
             close(pipefd[0]); // Close the reading end of the pipe
             search_file(searchpath, argv[i], recursive, case_insensitive, pipefd[1]);
-            close(pipefd[1]); // Close the writing end after the search
+            close(pipefd[1]); // Close the writing end of the pipe
             exit(0);
         }
         else {
