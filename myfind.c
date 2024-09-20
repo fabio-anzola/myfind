@@ -9,22 +9,23 @@
 #include <sys/types.h>
 #include <sys/errno.h>
 
-void search_file(const char *searchpath, const char *filename, int recursive, int case_insensitive) {
+void search_file(const char *searchpath, const char *filename, int recursive, int case_insensitive, int fd) {
     DIR *dir;
     struct dirent *entry;
     char path[1024];
     char abs_path[1024];
+    char result[2048]; // Buffer for pipe to parent
     
     // Open the searchpath directory and define dir
     if (!(dir = opendir(searchpath))) {
-        perror("Could not open searchpath directory");
+        fprintf(stderr,"Could not open searchpath directory %s\n", searchpath);
         return;
     }
 
     // Read files in directory
     while ((entry = readdir(dir)) != NULL) {
         // ignore "." and ".."
-        // strcomp returns 0 on equal
+        // strcmp returns 0 on equal
         if (strcmp(entry->d_name, ".") == 0 || 
             strcmp(entry->d_name, "..") == 0)
             continue;
@@ -34,28 +35,29 @@ void search_file(const char *searchpath, const char *filename, int recursive, in
 
         // create absolute path for output (searchpath + "/" + entry->d_name)
         if (realpath(path, abs_path) == NULL) {
-            // Enter here if absolute path could not be entered
-            // perror("Could not create absolute path");
+            // Enter here if absolute path could not be generated
+            // fprintf(stderr,"Could not create absolute path");
             continue;
         }
         
         // compare filename with current iteration of directory
-        // case sensitive
-        if ((case_insensitive && strcasecmp(entry->d_name, filename) == 0)) {
-            // if file found then output to stdout
-            printf("%d: %s: %s\n", getpid(), filename, abs_path);
-        }
-        // compare filename with current iteration of directory
         // case insensitive
+        if ((case_insensitive && strcasecmp(entry->d_name, filename) == 0)) {
+            // if file found then format output to result buffer
+            snprintf(result, sizeof(result), "%d: %s: %s\n", getpid(), filename, abs_path);
+            write(fd, result, strlen(result)); // write result to the pipe
+        }
+        // case sensitive
         else if ((!case_insensitive && strcmp(entry->d_name, filename) == 0)) {
-            // if file found then output to stdout
-            printf("%d: %s: %s\n", getpid(), filename, abs_path);
+            // if file found then format output to result buffer
+            snprintf(result, sizeof(result), "%d: %s: %s\n", getpid(), filename, abs_path);
+            write(fd, result, strlen(result)); // write result to the pipe
         }
         
         // if recursive flag is set
         if (recursive && entry->d_type == DT_DIR) {
             // re-call function with new directory
-            search_file(abs_path, filename, recursive, case_insensitive);
+            search_file(abs_path, filename, recursive, case_insensitive, fd);
         }
     }
 
@@ -85,7 +87,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    // Chech if searchpath and filenames have been entered
+    // Check if searchpath and filenames have been entered
     if (optind >= argc) { // optind is set by getopt
         fprintf(stderr, "Expected searchpath and filenames\n");
         exit(EXIT_FAILURE);
@@ -94,27 +96,51 @@ int main(int argc, char *argv[])
     // Extract searchpath from arguments
     searchpath = argv[optind];
     optind++;
+
+    int pipefd[2];
     
+    // Create a pipe
+    if (pipe(pipefd) == -1) {
+        fprintf(stderr,"Could not create pipe");
+        exit(EXIT_FAILURE);
+    }
+
     for (int i = optind; i < argc; i++) {
         pid_t pid = fork();
         
         if (pid == -1) { 
-            // Error while Forking
-            perror("Failed to fork");
+            // Error while forking
+            fprintf(stderr,"Failed to fork");
             exit(EXIT_FAILURE);
-            return 1;
         }
         if (pid == 0) { 
             // Child Process
-            search_file(searchpath, argv[i], recursive, case_insensitive);
+            close(pipefd[0]); // Close the reading end of the pipe
+            search_file(searchpath, argv[i], recursive, case_insensitive, pipefd[1]);
+            close(pipefd[1]); // Close the writing end after the search
             exit(0);
         }
         else {
-            // Parent process            
+            // Parent process
+            // The parent process does nothing here
         }
     }
 
-    // Non-Blocking lookup to wait for children
+    // Close the writing end of the pipe in the parent process
+    close(pipefd[1]);
+
+    // Parent process reads from the pipe and prints the results
+    char buffer[2048];
+    ssize_t bytes_read;
+    while ((bytes_read = read(pipefd[0], buffer, sizeof(buffer) - 1)) > 0) {
+        buffer[bytes_read] = '\0'; // Null-terminate the string
+        printf("%s", buffer); // Output synchronously
+    }
+
+    // Close the reading end in the parent process
+    close(pipefd[0]);
+
+    // Non-blocking wait for child processes
     pid_t pid;
     while ((pid = waitpid(-1, NULL, WNOHANG))) {
         if ((pid == -1) && (errno != EINTR)) {
@@ -123,5 +149,4 @@ int main(int argc, char *argv[])
     }
     
     return 0;
-
 }
