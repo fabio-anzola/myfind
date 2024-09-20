@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <string.h>
+#include <sys/wait.h>
 
 void search_file(const char *searchpath, const char *filename, int recursive, int case_insensitive) {
     DIR *dir;
@@ -109,5 +110,10 @@ int main(int argc, char *argv[])
             // Parent process            
         }
     }
+
+    // Blocking call to wait for children
+    while (wait(NULL) > 0);
+    
+    return 0;
 
 }
