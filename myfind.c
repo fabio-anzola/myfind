@@ -6,6 +6,8 @@
 #include <dirent.h>
 #include <string.h>
 #include <sys/wait.h>
+#include <sys/types.h>
+#include <sys/errno.h>
 
 void search_file(const char *searchpath, const char *filename, int recursive, int case_insensitive) {
     DIR *dir;
@@ -32,7 +34,8 @@ void search_file(const char *searchpath, const char *filename, int recursive, in
 
         // create absolute path for output (searchpath + "/" + entry->d_name)
         if (realpath(path, abs_path) == NULL) {
-            perror("Could not create absolute path");
+            // Enter here if absolute path could not be entered
+            // perror("Could not create absolute path");
             continue;
         }
         
@@ -111,8 +114,13 @@ int main(int argc, char *argv[])
         }
     }
 
-    // Blocking call to wait for children
-    while (wait(NULL) > 0);
+    // Non-Blocking lookup to wait for children
+    pid_t pid;
+    while ((pid = waitpid(-1, NULL, WNOHANG))) {
+        if ((pid == -1) && (errno != EINTR)) {
+            break;
+        }
+    }
     
     return 0;
 
