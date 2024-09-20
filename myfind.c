@@ -10,6 +10,7 @@ void search_file(const char *searchpath, const char *filename, int recursive, in
     DIR *dir;
     struct dirent *entry;
     char path[1024];
+    char abs_path[1024];
     
     // Open the searchpath directory and define dir
     if (!(dir = opendir(searchpath))) {
@@ -24,26 +25,33 @@ void search_file(const char *searchpath, const char *filename, int recursive, in
         if (strcmp(entry->d_name, ".") == 0 || 
             strcmp(entry->d_name, "..") == 0)
             continue;
+
+        // create relative path for realpath function
+        snprintf(path, sizeof(path), "%s/%s", searchpath, entry->d_name);
+
+        // create absolute path for output (searchpath + "/" + entry->d_name)
+        if (realpath(path, abs_path) == NULL) {
+            perror("Could not create absolute path");
+            continue;
+        }
         
         // compare filename with current iteration of directory
         // case sensitive
         if ((case_insensitive && strcasecmp(entry->d_name, filename) == 0)) {
             // if file found then output to stdout
-            printf("%d: %s: %s/%s\n", getpid(), filename, searchpath, entry->d_name);
+            printf("%d: %s: %s\n", getpid(), filename, abs_path);
         }
         // compare filename with current iteration of directory
         // case insensitive
         else if ((!case_insensitive && strcmp(entry->d_name, filename) == 0)) {
             // if file found then output to stdout
-            printf("%d: %s: %s/%s\n", getpid(), filename, searchpath, entry->d_name);
+            printf("%d: %s: %s\n", getpid(), filename, abs_path);
         }
         
         // if recursive flag is set
         if (recursive && entry->d_type == DT_DIR) {
-            // recreate full path for recursive search
-            snprintf(path, sizeof(path), "%s/%s", searchpath, entry->d_name);
             // re-call function with new directory
-            search_file(path, filename, recursive, case_insensitive);
+            search_file(abs_path, filename, recursive, case_insensitive);
         }
     }
 
