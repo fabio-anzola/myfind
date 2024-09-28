@@ -8,14 +8,15 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/errno.h>
+#include <linux/limits.h>
 
 // Function which is called within each process to search filename in searchpath
 void search_file(const char *searchpath, const char *filename, int recursive, int case_insensitive, int fd) {
     DIR *dir;
     struct dirent *entry;
-    char path[1024];
-    char abs_path[1024];
-    char result[2048]; // Buffer for pipe to parent
+    char path[PATH_MAX];
+    char abs_path[PATH_MAX];
+    char result[PATH_MAX + 2048]; // Buffer for pipe to parent
     
     // Open the searchpath directory and define dir
     if (!(dir = opendir(searchpath))) {
@@ -36,8 +37,10 @@ void search_file(const char *searchpath, const char *filename, int recursive, in
 
         // create absolute path for output
         if (realpath(path, abs_path) == NULL) {
+            // printf("%s", path);
             // Enter here if absolute path could not be generated
             // fprintf(stderr,"Could not create absolute path");
+            // likely could not find file in the current dir or permission error
             // skip
             continue;
         }
@@ -138,7 +141,7 @@ int main(int argc, char *argv[])
     close(pipefd[1]);
 
     // Parent process reads from the pipe and prints the results
-    char buffer[2048];
+    char buffer[PATH_MAX + 2048];
     ssize_t bytes_read;
     while ((bytes_read = read(pipefd[0], buffer, sizeof(buffer) - 1)) > 0) {
         buffer[bytes_read] = '\0'; // Null-terminate the string
